@@ -337,13 +337,13 @@ mark.rm-search-mark.rm-search-mark-active{background:rgba(var(--accent-rgb),.45)
 .ss-sent-frag{position:absolute;pointer-events:none;z-index:-1;box-sizing:content-box;opacity:0;transition:opacity .16s ease}
 .ss-word-flash{position:absolute;pointer-events:none;z-index:-1;border-radius:4px;background:rgba(var(--accent-rgb),.3);animation:wordFlash .7s ease-out forwards}
 @keyframes wordFlash{from{opacity:1}to{opacity:0}}
-/* ── Word lookup strip ── */
-.rm-def{position:fixed;left:50%;bottom:16px;z-index:210;width:min(720px,calc(100vw - 32px));box-sizing:border-box;padding:11px 16px 12px;border-radius:12px;border:1px solid transparent;box-shadow:0 10px 34px rgba(0,0,0,.28);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;opacity:0;transform:translate(-50%,8px);pointer-events:none;transition:opacity .16s ease,transform .16s ease}
-.rm-def.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-.rm-def-alt{font-size:14px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rm-def-alt b{font-weight:650;margin-right:10px}
-.rm-def-mean{font-size:14px;line-height:1.45;margin-top:3px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.rm-def-mean i{opacity:.6;margin-right:6px}
+/* ── Word lookup box ── */
+.rm-def{position:fixed;left:0;top:0;z-index:210;width:max-content;max-width:min(300px,calc(100vw - 24px));box-sizing:border-box;padding:8px 12px 9px;border-radius:10px;border:1px solid transparent;box-shadow:0 10px 34px rgba(0,0,0,.28);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;opacity:0;pointer-events:none;transition:opacity .16s ease}
+.rm-def.show{opacity:1;pointer-events:auto}
+.rm-def-alt{font-size:13px;line-height:1.4;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.rm-def-alt b{font-weight:650;margin-right:8px}
+.rm-def-mean{font-size:13px;line-height:1.4;margin-top:3px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+.rm-def-mean i{opacity:.6;margin-right:6px}.rm-def-mean i:empty{display:none}
 .ss-word-mark{position:absolute;pointer-events:none;z-index:-1;border-radius:4px;background:rgba(var(--accent-rgb),.28)}
 
 
@@ -2008,6 +2008,7 @@ function rmGo(idx, instant) {
   if (!strip || !_rmPageW) return;
 
   const prevIdx = _rmIdx;
+  if (idx !== _rmIdx) defHide();
 
   if (instant) {
     document.querySelectorAll('.rm-turn').forEach(e => e.remove());   // a jump ends any page turn in flight
@@ -2660,12 +2661,12 @@ document.addEventListener('mouseup', e => {
 }, true);
 
 // ── Word lookup ──
-// A two-finger click on a word shows its alternatives and meaning above the player.
+// A two-finger click on a word shows its alternatives and meaning in a small box beside it.
 
 const DEF_API = 'https://api.datamuse.com/words';
 const DEF_HOLD_MS = 14000;
 const _defCache = new Map();
-let _defSeq = 0, _defTimer = null, _ctxHadSelection = false;
+let _defSeq = 0, _defTimer = null, _defRect = null, _ctxHadSelection = false;
 
 // The word under a screen point: { word, range }, or null on blank space
 function wordAtScreenPoint(x, y) {
@@ -2793,6 +2794,21 @@ function defFill(word, alts, pos, meaning) {
   el.querySelector('.rm-def-alt span').textContent = alts;
   el.querySelector('.rm-def-mean i').textContent = pos;
   el.querySelector('.rm-def-mean span').textContent = meaning;
+  defPlace();
+}
+
+// Under the word, or above it when the page bottom or the player is in the way
+function defPlace() {
+  const el = document.getElementById('rm-def');
+  if (!el || !_defRect) return;
+  const player = document.getElementById('player');
+  const floor = player && player.classList.contains('visible') && !player.classList.contains('bars-hidden') ? player.getBoundingClientRect().top : window.innerHeight;
+  const w = el.offsetWidth, h = el.offsetHeight, gap = 6;
+  const left = Math.max(12, Math.min(window.innerWidth - w - 12, _defRect.left + _defRect.width / 2 - w / 2));
+  const below = _defRect.bottom + gap;
+  const top = below + h <= floor - 8 ? below : Math.max(8, _defRect.top - gap - h);
+  el.style.left = Math.round(left) + 'px';
+  el.style.top = Math.round(top) + 'px';
 }
 
 function defMark(range) {
@@ -2820,9 +2836,7 @@ async function defShow(hit) {
   const seq = ++_defSeq;
   const el = defPanel();
   const th = rmGetResolvedTheme();
-  const player = document.getElementById('player');
-  const pTop = player && player.classList.contains('visible') && !player.classList.contains('bars-hidden') ? player.getBoundingClientRect().top : window.innerHeight;
-  el.style.bottom = (window.innerHeight - pTop + 14) + 'px';
+  _defRect = hit.range.getBoundingClientRect();
   el.style.background = `color-mix(in srgb, ${th.text} 7%, ${th.bg})`;
   el.style.borderColor = `color-mix(in srgb, ${th.text} 16%, ${th.bg})`;
   el.style.color = th.text;
