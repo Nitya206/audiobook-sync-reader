@@ -11,7 +11,7 @@ You bring your own book and audio. Nothing is uploaded anywhere. Transcription a
 | Read-along highlight | Sentence or paragraph, switchable in settings |
 | Auto page turn | Follows the narrator, pauses when you turn a page by hand |
 | Click to seek | Click a word, the audio jumps to it |
-| Word lookup | Two-finger click a word, a small box above it shows alternatives and meaning (needs internet) |
+| Word lookup | Two-finger click a word, a small box above it shows alternatives and meaning, and the audio waits 5 seconds (needs internet) |
 | Two-page mode | Side-by-side pages on a wide window |
 | Chapter openers | Heading and synopsis line light up when they are read |
 | Player | Speed, sleep timer, bookmarks, chapter list, resume where you stopped |
