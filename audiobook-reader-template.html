@@ -2722,11 +2722,10 @@ document.addEventListener('mouseup', e => {
 
 const DEF_API = 'https://api.datamuse.com/words';
 const DEF_HOLD_MS = 10000;
-const DEF_PAUSE_MS = 5000;     // how long a lookup holds the audio
 const DEF_REPLAY_MAX = 20;     // the audio goes back to the word when it was read within this many seconds
 const _defCache = new Map();
 let _defSeq = 0, _defTimer = null, _defRect = null, _ctxHadSelection = false;
-let _defHold = null;   // { pausedAt, at, timer } while a lookup holds the audio
+let _defHold = null;   // { pausedAt, at } while a lookup holds the audio
 
 // The word under a screen point: { word, range }, or null on blank space
 function wordAtScreenPoint(x, y) {
@@ -2884,26 +2883,23 @@ function defMark(range) {
   }
 }
 
-// Pauses playing audio for a lookup. It resumes by itself, from the looked-up word when that word was just read.
+// Pauses playing audio for a lookup. It resumes when the box goes, from the looked-up word when that word was just read.
 function defHoldAudio(hit) {
   if (!_defHold) {
     if (!_hasAudio || audio.paused) return;
-    _defHold = { pausedAt: audio.currentTime, at: null, timer: null };
+    _defHold = { pausedAt: audio.currentTime, at: null };
     audio.pause();
   }
-  clearTimeout(_defHold.timer);
   const el = hit.range.startContainer.parentElement?.closest('#rm-strip p, #rm-strip .ss-timed');
   const word = el && el.dataset.ci !== undefined ? wordAtPoint(el, hit.x, hit.y) : null;
   const back = word ? _defHold.pausedAt - word.t : -1;
   _defHold.at = back >= 0 && back <= DEF_REPLAY_MAX ? Math.max(0, word.t - 0.08) : null;
-  _defHold.timer = setTimeout(defReleaseAudio, DEF_PAUSE_MS);
 }
 
 function defReleaseAudio() {
   const hold = _defHold;
   if (!hold) return;
   _defHold = null;
-  clearTimeout(hold.timer);
   if (hold.at !== null) audio.currentTime = hold.at;
   audio.play();
 }
@@ -2911,7 +2907,6 @@ function defReleaseAudio() {
 // The reader took over the player, so the audio stays as they leave it
 function defDropHold() {
   if (!_defHold) return;
-  clearTimeout(_defHold.timer);
   _defHold = null;
   if (audio.paused) document.documentElement.classList.add('ss-paused');
 }
