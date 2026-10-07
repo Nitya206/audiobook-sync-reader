@@ -828,6 +828,7 @@ let _sentKey = null;
 // so the page does not flash back to full strength in between
 function clearSentence(keepDim) {
   _sentKey = null;
+  document.querySelectorAll('#rm-strip .ss-lit').forEach(e => e.classList.remove('ss-lit'));
   if (!keepDim) {
     if (window.CSS && CSS.highlights) CSS.highlights.delete('ss-sent');
     document.querySelectorAll('#rm-strip .rm-ch.ss-dim').forEach(e => e.classList.remove('ss-dim'));
@@ -898,7 +899,23 @@ function drawSentence(el, range) {
 function updateSentence(fp, t) {
   if (!SENT_MODE || !fp || !fp.el) return;
   const timedPara = typeof fp.pi === 'number' ? SYNC_DATA[fp.ci].paragraphs[fp.pi] : null;
-  if (!timedPara || !timedPara.charMap) { if (_sentKey !== null) clearSentence(); return; }
+  if (!timedPara || !timedPara.charMap) {
+    // A heading, a synopsis line or a paragraph without word times is lit whole, by its box.
+    // The rest of the chapter dims around it the same way.
+    const wholeKey = fp.ci + ':' + fp.pi;
+    if (_sentKey === wholeKey) return;
+    const dimsWhole = _rmPrefs.dim !== false;
+    clearSentence(dimsWhole);
+    if (window.CSS && CSS.highlights) CSS.highlights.delete('ss-sent');
+    _sentKey = wholeKey;
+    if (dimsWhole) {
+      fp.el.classList.add('ss-lit');
+      const chapter = fp.el.closest('.rm-ch');
+      document.querySelectorAll('#rm-strip .rm-ch.ss-dim').forEach(e => { if (e !== chapter) e.classList.remove('ss-dim'); });
+      if (chapter) chapter.classList.add('ss-dim');
+    }
+    return;
+  }
   const sents = paraSentences(fp);
   let k = 0;
   for (let i = 1; i < sents.length; i++) if (sents[i].t <= t) k = i;
@@ -1536,6 +1553,10 @@ function skinCss() {
   // While a sentence is lit, the rest of its chapter steps back a little
   if (SENT_MODE && _rmPrefs.dim !== false) css += `
     html:not(.ss-paused) .rm-ch.ss-dim p{color:color-mix(in srgb, ${th.text} 22%, transparent);transition:color .2s ease}
+    html:not(.ss-paused) .rm-ch.ss-dim p.ss-lit{color:${th.text}}
+    html:not(.ss-paused) .rm-ch.ss-dim .bk-num,html:not(.ss-paused) .rm-ch.ss-dim .bk-syn,html:not(.ss-paused) .rm-ch.ss-dim .ss-ch-head:not(.bk-head){opacity:.3;transition:opacity .2s ease}
+    html:not(.ss-paused) .rm-ch.ss-dim .bk-num:has(.ss-lit),html:not(.ss-paused) .rm-ch.ss-dim .ss-ch-head:not(.bk-head):has(.ss-lit){opacity:1}
+    html:not(.ss-paused) .rm-ch.ss-dim .bk-syn.ss-lit{opacity:.9}
     ::highlight(ss-sent){color:${th.text}}
   `;
   // Extra space after each paragraph, set in the settings panel, in ems
