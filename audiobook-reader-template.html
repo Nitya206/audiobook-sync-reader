@@ -971,6 +971,13 @@ function rangeLineRects(range) {
   }
   return out;
 }
+// Dims the chapter being read and the one on each side of it,
+// because a neighbour's page can share the screen with it
+function dimAround(chapter) {
+  const all = [...document.querySelectorAll('#rm-strip .rm-ch')];
+  const at = all.indexOf(chapter);
+  all.forEach((e, k) => e.classList.toggle('ss-dim', at >= 0 && Math.abs(k - at) <= 1));
+}
 function updateSentence(fp, t) {
   if (!SENT_MODE || !fp || !fp.el) return;
   const timedPara = typeof fp.pi === 'number' ? SYNC_DATA[fp.ci].paragraphs[fp.pi] : null;
@@ -986,8 +993,7 @@ function updateSentence(fp, t) {
     if (dimsWhole) {
       fp.el.classList.add('ss-lit');
       const chapter = fp.el.closest('.rm-ch');
-      document.querySelectorAll('#rm-strip .rm-ch.ss-dim').forEach(e => { if (e !== chapter) e.classList.remove('ss-dim'); });
-      if (chapter) chapter.classList.add('ss-dim');
+      dimAround(chapter);
     }
     return;
   }
@@ -1007,8 +1013,7 @@ function updateSentence(fp, t) {
   if (dims) {
     CSS.highlights.set('ss-sent', new Highlight(range));   // keeps the sentence at full strength
     const chapter = fp.el.closest('.rm-ch');
-    document.querySelectorAll('#rm-strip .rm-ch.ss-dim').forEach(e => { if (e !== chapter) e.classList.remove('ss-dim'); });
-    if (chapter) chapter.classList.add('ss-dim');
+    dimAround(chapter);
   }
   if (range) drawSentence(fp.el, range);
 }
