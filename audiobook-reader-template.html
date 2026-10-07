@@ -847,6 +847,7 @@ function clearSentence(keepDim) {
 // Draws the sentence highlight: one bar per line of text, a little wider than
 // the words, with a line down the left of the first one.
 // Gap beside the words in px, and how much of a line's height the block gives up at its top and bottom
+const SENT_BAR = 0;   // width in px of the line down the left of a sentence, 0 for none
 const SENT_PAD = 3.5, SENT_PAD_LEFT = 3.5, SENT_TRIM_TOP = 0.0925, SENT_TRIM_BOTTOM = 0.0925;
 function drawSentence(el, range) {
   const strip = document.getElementById('rm-strip');
@@ -897,7 +898,7 @@ function drawSentence(el, range) {
     const round = on => on ? '4px' : '0';
     const tl = !above || above.left > line.left + 1, tr = !above || above.right < line.right - 1;
     const br = !below || below.right < line.right - 1, bl = !below || below.left > line.left + 1;
-    const bar = barred[k] ? 3 : 0;
+    const bar = barred[k] ? SENT_BAR : 0;
     const box = document.createElement('div');
     box.className = 'ss-sent-frag';
     box.style.cssText = `left:${line.left - sRect.left - SENT_PAD_LEFT - bar}px;top:${top - sRect.top}px;` +
