@@ -337,6 +337,15 @@ mark.rm-search-mark.rm-search-mark-active{background:rgba(var(--accent-rgb),.45)
 .ss-sent-frag{position:absolute;pointer-events:none;z-index:-1;box-sizing:content-box;opacity:0;transition:opacity .16s ease}
 .ss-word-flash{position:absolute;pointer-events:none;z-index:-1;border-radius:4px;background:rgba(var(--accent-rgb),.3);animation:wordFlash .7s ease-out forwards}
 @keyframes wordFlash{from{opacity:1}to{opacity:0}}
+/* ── Word lookup strip ── */
+.rm-def{position:fixed;left:50%;bottom:16px;z-index:210;width:min(720px,calc(100vw - 32px));box-sizing:border-box;padding:11px 16px 12px;border-radius:12px;border:1px solid transparent;box-shadow:0 10px 34px rgba(0,0,0,.28);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;opacity:0;transform:translate(-50%,8px);pointer-events:none;transition:opacity .16s ease,transform .16s ease}
+.rm-def.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.rm-def-alt{font-size:14px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rm-def-alt b{font-weight:650;margin-right:10px}
+.rm-def-mean{font-size:14px;line-height:1.45;margin-top:3px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.rm-def-mean i{opacity:.6;margin-right:6px}
+.ss-word-mark{position:absolute;pointer-events:none;z-index:-1;border-radius:4px;background:rgba(var(--accent-rgb),.28)}
+
 
 /* ── Chapter ticks on the seek bar ── */
 .seek-wrap{flex:1;position:relative;display:flex;align-items:center}
@@ -2333,6 +2342,7 @@ document.addEventListener('keydown', e => {
   const searchOpen = document.getElementById('rm-search')?.classList.contains('show');
   if (e.key === 'Escape') {
     if (searchOpen) { rmSearchClose(); return; }
+    if (document.getElementById('rm-def')?.classList.contains('show')) { defHide(); return; }
     if (document.getElementById('sleep-menu').classList.contains('show')) { sleepCloseMenu(); return; }
     const toc = document.getElementById('rm-toc');
     if (toc && toc.classList.contains('show')) { toc.classList.remove('show'); return; }
@@ -2648,6 +2658,208 @@ document.addEventListener('mouseup', e => {
   if (Math.sqrt(dx*dx + dy*dy) > 6) _lpWasDrag = true;
   setTimeout(() => { _lpFlag = false; _lpWasDrag = false; }, 50);
 }, true);
+
+// ── Word lookup ──
+// A two-finger click on a word shows its alternatives and meaning above the player.
+
+const DEF_API = 'https://api.datamuse.com/words';
+const DEF_HOLD_MS = 14000;
+const _defCache = new Map();
+let _defSeq = 0, _defTimer = null, _ctxHadSelection = false;
+
+// The word under a screen point: { word, range }, or null on blank space
+function wordAtScreenPoint(x, y) {
+  let node = null, offset = 0;
+  if (document.caretRangeFromPoint) {
+    const r = document.caretRangeFromPoint(x, y);
+    if (r) { node = r.startContainer; offset = r.startOffset; }
+  } else if (document.caretPositionFromPoint) {
+    const pos = document.caretPositionFromPoint(x, y);
+    if (pos) { node = pos.offsetNode; offset = pos.offset; }
+  }
+  if (!node || node.nodeType !== Node.TEXT_NODE) return null;
+  const text = node.data, isWordChar = c => /[\p{L}­'’-]/u.test(c);
+  let from = offset, to = offset;
+  while (from > 0 && isWordChar(text[from - 1])) from--;
+  while (to < text.length && isWordChar(text[to])) to++;
+  while (from < to && !/\p{L}/u.test(text[from])) from++;
+  while (to > from && !/\p{L}/u.test(text[to - 1])) to--;
+  if (to - from < 2) return null;
+  const range = document.createRange();
+  range.setStart(node, from);
+  range.setEnd(node, to);
+  const hit = [...range.getClientRects()].some(r => x >= r.left - 3 && x <= r.right + 3 && y >= r.top - 3 && y <= r.bottom + 3);
+  if (!hit) return null;
+  const word = text.slice(from, to).replace(/­/g, '').replace(/’/g, "'").replace(/'s$/i, '');
+  return { word, range };
+}
+
+async function defFetch(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('lookup ' + res.status);
+  return res.json();
+}
+
+// Plain forms to try when the word as printed has no entry
+function baseForms(w) {
+  const out = [];
+  const add = f => { if (f.length > 2 && f !== w && !out.includes(f)) out.push(f); };
+  if (w.endsWith('ies')) add(w.slice(0, -3) + 'y');
+  if (w.endsWith('es')) add(w.slice(0, -2));
+  if (w.endsWith('s')) add(w.slice(0, -1));
+  if (w.endsWith('ied')) add(w.slice(0, -3) + 'y');
+  if (w.endsWith('ed')) { add(w.slice(0, -2)); add(w.slice(0, -1)); add(w.slice(0, -3)); }
+  if (w.endsWith('ing')) { add(w.slice(0, -3)); add(w.slice(0, -3) + 'e'); add(w.slice(0, -4)); }
+  if (w.endsWith('ly')) add(w.slice(0, -2));
+  return out;
+}
+
+const FORM_OF = /^(?:plural|simple past(?: tense)?(?: and past participle)?|past participle|present participle|third-person singular[a-z -]*|(?:alternative|obsolete|archaic|dated) (?:form|spelling)) of ([\p{L}'-]+)/iu;
+
+// First dictionary sense of exactly this word: { pos, text }, or null
+async function defSense(w) {
+  const rows = await defFetch(`${DEF_API}?sp=${encodeURIComponent(w)}&md=d&max=1`);
+  const row = rows[0];
+  if (!row || row.word !== w || !row.defs || !row.defs.length) return null;
+  const [pos, raw] = row.defs[0].split('\t');
+  const text = (raw || '').replace(/\((?:transitive|intransitive|ambitransitive|countable|uncountable|usually uncountable|not comparable|comparable)(?:, (?:transitive|intransitive|countable|uncountable))*\)\s*/gi, '').trim();
+  return text ? { pos, text } : null;
+}
+
+// Wiktionary covers words Datamuse lacks, including other languages
+async function wikiSense(w) {
+  try {
+    const data = await defFetch(`https://en.wiktionary.org/api/rest_v1/page/definition/${encodeURIComponent(w)}`);
+    const group = (data.en || Object.values(data)[0] || [])[0];
+    const html = group?.definitions?.find(d => d.definition)?.definition;
+    if (!html) return null;
+    const box = document.createElement('div');
+    box.innerHTML = html;
+    const text = box.textContent.replace(/\s+/g, ' ').trim();
+    if (!text) return null;
+    const lang = data.en ? '' : group.language + ' · ';
+    return { pos: (group.partOfSpeech || '').toLowerCase(), text: lang + text };
+  } catch (err) {
+    return null;
+  }
+}
+
+async function defAlternatives(w) {
+  let rows = await defFetch(`${DEF_API}?rel_syn=${encodeURIComponent(w)}&max=7`);
+  if (!rows.length) rows = await defFetch(`${DEF_API}?ml=${encodeURIComponent(w)}&max=5`);
+  return rows.map(r => r.word).filter(a => a !== w);
+}
+
+// { shown, alts, sense } for a word as printed
+async function lookupWord(printed) {
+  const key = printed.toLowerCase();
+  if (_defCache.has(key)) return _defCache.get(key);
+  let shown = key, sense = await defSense(key);
+  if (!sense) {
+    for (const form of baseForms(key)) {
+      sense = await defSense(form);
+      if (sense) { shown = form; break; }
+    }
+  }
+  const formOf = sense && sense.text.match(FORM_OF);
+  if (formOf) {
+    const base = await defSense(formOf[1].toLowerCase());
+    if (base) { shown = formOf[1].toLowerCase(); sense = base; }
+  }
+  if (!sense) sense = await wikiSense(printed) || (printed !== key ? await wikiSense(key) : null);
+  const alts = await defAlternatives(shown);
+  const out = { shown, alts, sense };
+  _defCache.set(key, out);
+  return out;
+}
+
+function defPanel() {
+  let el = document.getElementById('rm-def');
+  if (el) return el;
+  el = document.createElement('div');
+  el.id = 'rm-def';
+  el.className = 'rm-def';
+  el.innerHTML = '<div class="rm-def-alt"><b></b><span></span></div><div class="rm-def-mean"><i></i><span></span></div>';
+  for (const type of ['mousedown', 'pointerdown', 'click', 'touchstart']) el.addEventListener(type, e => e.stopPropagation());
+  el.addEventListener('mouseenter', () => clearTimeout(_defTimer));
+  el.addEventListener('mouseleave', () => { _defTimer = setTimeout(defHide, 4000); });
+  document.body.appendChild(el);
+  return el;
+}
+
+function defFill(word, alts, pos, meaning) {
+  const el = defPanel();
+  el.querySelector('.rm-def-alt b').textContent = word;
+  el.querySelector('.rm-def-alt span').textContent = alts;
+  el.querySelector('.rm-def-mean i').textContent = pos;
+  el.querySelector('.rm-def-mean span').textContent = meaning;
+}
+
+function defMark(range) {
+  document.querySelectorAll('.ss-word-mark').forEach(m => m.remove());
+  const strip = document.getElementById('rm-strip');
+  if (!strip || !range) return;
+  const sRect = strip.getBoundingClientRect();
+  for (const r of range.getClientRects()) {
+    if (r.width < 2) continue;
+    const mark = document.createElement('div');
+    mark.className = 'ss-word-mark';
+    mark.style.cssText = `left:${r.left - sRect.left - 2}px;top:${r.top - sRect.top}px;width:${r.width + 4}px;height:${r.height}px;`;
+    strip.appendChild(mark);
+  }
+}
+
+function defHide() {
+  clearTimeout(_defTimer);
+  _defSeq++;
+  document.getElementById('rm-def')?.classList.remove('show');
+  defMark(null);
+}
+
+async function defShow(hit) {
+  const seq = ++_defSeq;
+  const el = defPanel();
+  const th = rmGetResolvedTheme();
+  const player = document.getElementById('player');
+  const pTop = player && player.classList.contains('visible') && !player.classList.contains('bars-hidden') ? player.getBoundingClientRect().top : window.innerHeight;
+  el.style.bottom = (window.innerHeight - pTop + 14) + 'px';
+  el.style.background = `color-mix(in srgb, ${th.text} 7%, ${th.bg})`;
+  el.style.borderColor = `color-mix(in srgb, ${th.text} 16%, ${th.bg})`;
+  el.style.color = th.text;
+  defMark(hit.range);
+  defFill(hit.word, '', '', 'Looking up…');
+  el.classList.add('show');
+  clearTimeout(_defTimer);
+  let res = null, failed = false;
+  try { res = await lookupWord(hit.word); } catch (err) { failed = true; }
+  if (seq !== _defSeq) return;
+  if (failed) defFill(hit.word, '', '', 'Word lookup needs an internet connection.');
+  else {
+    const posShort = { n: 'noun', v: 'verb', adj: 'adj.', adv: 'adv.' };
+    const pos = res.sense ? (posShort[res.sense.pos] || res.sense.pos || '') : '';
+    defFill(res.shown, res.alts.length ? res.alts.join(', ') : 'no alternatives found', pos, res.sense ? res.sense.text : 'No meaning found for this word.');
+  }
+  _defTimer = setTimeout(defHide, DEF_HOLD_MS);
+}
+
+// The selection state before the press, because macOS selects the word on a two-finger click
+document.addEventListener('mousedown', e => {
+  if (e.button === 2 || e.ctrlKey) { _ctxHadSelection = !getSelection().isCollapsed; return; }
+  if (!e.target.closest('#rm-def')) defHide();
+}, true);
+
+window.addEventListener('resize', defHide);
+
+document.addEventListener('contextmenu', e => {
+  if (!e.target.closest('#rm-strip')) return;
+  // A selection made on purpose keeps the system menu, for Copy
+  if (_ctxHadSelection) return;
+  const hit = wordAtScreenPoint(e.clientX, e.clientY);
+  if (!hit) return;
+  e.preventDefault();
+  getSelection().removeAllRanges();
+  defShow(hit);
+});
 
 // Character offset inside paragraph `el` at a screen point, or -1
 function charOffsetAtPoint(el, x, y) {
