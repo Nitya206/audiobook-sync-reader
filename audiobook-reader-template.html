@@ -2639,7 +2639,7 @@ document.addEventListener('mousedown', e => {
   _lpWasDrag = false;
   _lpDownX = e.clientX;
   _lpDownY = e.clientY;
-  _lpTimer = setTimeout(() => { _lpFlag = true; }, 400);
+  _lpTimer = setTimeout(() => { _lpFlag = true; }, 220);   // a press held this long is a Look Up press, not a seek
 }, true);
 document.addEventListener('mouseup', e => {
   clearTimeout(_lpTimer);
