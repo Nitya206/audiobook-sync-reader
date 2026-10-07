@@ -845,7 +845,7 @@ function clearSentence(keepDim) {
 // Draws the sentence highlight: one bar per line of text, a little wider than
 // the words, with a line down the left of the first one.
 // Gap beside the words in px, and how much of a line's height the block gives up at its top and bottom
-const SENT_PAD = 3, SENT_PAD_LEFT = 3.5, SENT_TRIM_TOP = 0.0925, SENT_TRIM_BOTTOM = 0.0925;
+const SENT_PAD = 3, SENT_PAD_LEFT = 3, SENT_TRIM_TOP = 0.0925, SENT_TRIM_BOTTOM = 0.0925;
 function drawSentence(el, range) {
   const strip = document.getElementById('rm-strip');
   if (!strip || !_rmColPitch) return;
