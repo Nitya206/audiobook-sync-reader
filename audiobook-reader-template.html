@@ -774,7 +774,10 @@ function onTimeUpdate() {
       const lastEnd = _flatParas[_lastFlatIdx]?.end ?? 0;
       const nextChIdx = found >= 0 ? _flatParas[found]?.chIdx : -1;
       const grace = (nextChIdx !== -1 && nextChIdx !== _flatParas[_lastFlatIdx]?.chIdx) ? 60 : 2;
-      if (t > lastEnd + grace) {
+      // A pause before the next piece keeps the highlight. Only a long stretch with nothing to follow clears it.
+      const upNext = _flatParas[found + 1];
+      const pauseOnly = !!upNext && upNext.start - lastEnd < 20;
+      if (t > lastEnd + grace && !pauseOnly) {
         if (_flatParas[_lastFlatIdx]?.el) {
           _flatParas[_lastFlatIdx].el.classList.remove('ss-active');
         }
