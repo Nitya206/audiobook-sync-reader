@@ -2797,16 +2797,16 @@ function defFill(word, alts, pos, meaning) {
   defPlace();
 }
 
-// Under the word, or above it when the page bottom or the player is in the way
+// Above the word from its left edge, or under it when the page top is in the way
 function defPlace() {
   const el = document.getElementById('rm-def');
   if (!el || !_defRect) return;
   const player = document.getElementById('player');
   const floor = player && player.classList.contains('visible') && !player.classList.contains('bars-hidden') ? player.getBoundingClientRect().top : window.innerHeight;
   const w = el.offsetWidth, h = el.offsetHeight, gap = 6;
-  const left = Math.max(12, Math.min(window.innerWidth - w - 12, _defRect.left + _defRect.width / 2 - w / 2));
-  const below = _defRect.bottom + gap;
-  const top = below + h <= floor - 8 ? below : Math.max(8, _defRect.top - gap - h);
+  const left = Math.max(12, Math.min(window.innerWidth - w - 12, _defRect.left - 2));
+  const above = _defRect.top - gap - h;
+  const top = above >= 8 ? above : Math.min(floor - 8 - h, _defRect.bottom + gap);
   el.style.left = Math.round(left) + 'px';
   el.style.top = Math.round(top) + 'px';
 }
@@ -2836,7 +2836,7 @@ async function defShow(hit) {
   const seq = ++_defSeq;
   const el = defPanel();
   const th = rmGetResolvedTheme();
-  _defRect = hit.range.getBoundingClientRect();
+  _defRect = hit.range.getClientRects()[0] || hit.range.getBoundingClientRect();
   el.style.background = `color-mix(in srgb, ${th.text} 7%, ${th.bg})`;
   el.style.borderColor = `color-mix(in srgb, ${th.text} 16%, ${th.bg})`;
   el.style.color = th.text;
