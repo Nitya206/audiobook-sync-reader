@@ -1865,7 +1865,7 @@ function rmInit(restorePageIdx) {
     height:${colH}px;width:${clipW}px;overflow:visible;
     --col-w:${colW}px;--col-h:${colH}px;--col-gap:${GAP}px;
     font-family:${fontFam};font-size:${_rmFontSize}px;color:${th.text};
-    line-height:${_rmPrefs.lh || 1.88};letter-spacing:.012em;
+    line-height:${_rmPrefs.lh || 1.88};letter-spacing:${SKIN_DEF.book ? '0' : '.012em'};
     text-align:${_rmPrefs.justify ? 'justify' : 'left'};
     word-wrap:break-word;overflow-wrap:break-word;
     ${keepAt}
