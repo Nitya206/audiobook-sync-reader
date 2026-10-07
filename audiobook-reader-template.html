@@ -1563,9 +1563,9 @@ function skinCss() {
   `;
   // While a sentence is lit, the rest of its chapter steps back a little
   if (SENT_MODE && _rmPrefs.dim !== false) css += `
-    html:not(.ss-paused) .rm-ch.ss-dim p{color:color-mix(in srgb, ${th.text} 33.5%, ${th.bg});transition:color .2s ease}
+    html:not(.ss-paused) .rm-ch.ss-dim p{color:color-mix(in srgb, ${th.text} 26.5%, ${th.bg});transition:color .2s ease}
     html:not(.ss-paused) .rm-ch.ss-dim p.ss-lit{color:${th.text}}
-    html:not(.ss-paused) .rm-ch.ss-dim .bk-num,html:not(.ss-paused) .rm-ch.ss-dim .bk-syn,html:not(.ss-paused) .rm-ch.ss-dim .ss-ch-head:not(.bk-head){opacity:.335;transition:opacity .2s ease}
+    html:not(.ss-paused) .rm-ch.ss-dim .bk-num,html:not(.ss-paused) .rm-ch.ss-dim .bk-syn,html:not(.ss-paused) .rm-ch.ss-dim .ss-ch-head:not(.bk-head){opacity:.265;transition:opacity .2s ease}
     html:not(.ss-paused) .rm-ch.ss-dim .bk-num:has(.ss-lit),html:not(.ss-paused) .rm-ch.ss-dim .ss-ch-head:not(.bk-head):has(.ss-lit){opacity:1}
     html:not(.ss-paused) .rm-ch.ss-dim .bk-syn.ss-lit{opacity:.9}
     ::highlight(ss-sent){color:${th.text}}
