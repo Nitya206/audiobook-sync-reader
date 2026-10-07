@@ -858,7 +858,7 @@ function clearSentence(keepDim) {
 // the words, with a line down the left of the first one.
 // Gap beside the words in px, and how much of a line's height the block gives up at its top and bottom
 const SENT_BAR = 0;   // width in px of the line down the left of a sentence, 0 for none
-const SENT_PAD = 5, SENT_PAD_LEFT = 5, SENT_TRIM_TOP = 0.0925, SENT_TRIM_BOTTOM = 0.0925;
+const SENT_PAD = 4.5, SENT_PAD_LEFT = 4.5, SENT_TRIM_TOP = 0.0925, SENT_TRIM_BOTTOM = 0.0925;
 function drawSentence(el, range) {
   const strip = document.getElementById('rm-strip');
   if (!strip || !_rmColPitch) return;
