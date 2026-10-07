@@ -1,0 +1,10 @@
+# Books, audio and built readers stay out of the repo
+*.epub
+*.m4b
+*.m4a
+*.mp3
+*.html
+!audiobook-reader-template.html
+.sync/
+__pycache__/
+.DS_Store
