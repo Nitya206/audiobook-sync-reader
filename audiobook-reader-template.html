@@ -824,10 +824,12 @@ function paraSentences(fp) {
 }
 
 let _sentKey = null;
+let _sentCur = null;   // { ci, pi, from, to } of the sentence that is lit
 // `keepDim` leaves the dimming in place when the next sentence is about to be drawn,
 // so the page does not flash back to full strength in between
 function clearSentence(keepDim) {
   _sentKey = null;
+  _sentCur = null;
   document.querySelectorAll('#rm-strip .ss-lit').forEach(e => e.classList.remove('ss-lit'));
   if (!keepDim) {
     if (window.CSS && CSS.highlights) CSS.highlights.delete('ss-sent');
@@ -939,6 +941,7 @@ function updateSentence(fp, t) {
   const dims = !!range && _rmPrefs.dim !== false && typeof Highlight !== 'undefined' && !!(window.CSS && CSS.highlights);
   clearSentence(dims);
   _sentKey = key;
+  _sentCur = { ci: fp.ci, pi: fp.pi, from: sents[k].from, to };
   if (dims) {
     CSS.highlights.set('ss-sent', new Highlight(range));   // keeps the sentence at full strength
     const chapter = fp.el.closest('.rm-ch');
@@ -1976,6 +1979,12 @@ function cloneReader(rm, pageIdx) {
         if (!(first < from + _rmPerPage && first + n > from)) continue;
       }
       stripCopy.appendChild(node.cloneNode(true));
+    }
+    // The lit sentence keeps its full strength on the sliding copy too
+    if (_sentCur && window.CSS && CSS.highlights && CSS.highlights.has('ss-sent')) {
+      const lit = stripCopy.querySelector(`p[data-ci="${_sentCur.ci}"][data-pi="${_sentCur.pi}"]`);
+      const litRange = lit && rangeFromChars(lit, _sentCur.from, _sentCur.to);
+      if (litRange) CSS.highlights.get('ss-sent').add(litRange);
     }
     clipCopy.appendChild(stripCopy);
     copy.appendChild(clipCopy);
