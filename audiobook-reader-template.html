@@ -83,7 +83,7 @@ html,body{height:100%;background:#0d0d0d;color:#e8e8e8;font-family:'Raleway',san
 /* ── Reader content clip + strip (CSS columns) ── */
 .rm-clip{flex:1;overflow:hidden;position:relative;cursor:default;user-select:none;-webkit-touch-callout:none}
 .rm-strip p{user-select:text;-webkit-user-select:text;-webkit-touch-callout:default;cursor:text}
-.rm-strip{transition:transform .575s cubic-bezier(.4,0,.2,1);width:100%}
+.rm-strip{transition:transform .575s cubic-bezier(.4,0,.2,1);width:100%;isolation:isolate}
 .rm-strip p{box-sizing:border-box;margin:-.45em 0 .85em;padding:.45em .9em .45em .72em;break-inside:auto;page-break-inside:auto;orphans:1;widows:1;user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}
 .rm-strip p::-webkit-scrollbar{width:3px}
 .rm-strip p::-webkit-scrollbar-track{background:transparent}
@@ -97,10 +97,10 @@ html,body{height:100%;background:#0d0d0d;color:#e8e8e8;font-family:'Raleway',san
 /* A chapter flows through its own columns. The reader sets the chapters side by side. */
 .rm-ch{position:absolute;top:0;left:0;width:var(--col-w);height:var(--col-h);column-width:var(--col-w);column-gap:var(--col-gap);column-fill:auto;overflow:visible}
 .rm-strip .ss-ch-head em{color:var(--accent);font-style:normal}
-.rm-strip .ss-timed{position:relative;z-index:1;cursor:pointer}
+.rm-strip .ss-timed{cursor:pointer}
 /* Active paragraph marker — visuals drawn by .ss-hl-frag overlays in JS */
 .rm-strip p.ss-active{}
-.ss-hl-frag{position:absolute;pointer-events:none;z-index:0;border-radius:4px;}/* ── Click zones (left/right page flip) ── */
+.ss-hl-frag{position:absolute;pointer-events:none;z-index:-1;border-radius:4px;}/* ── Click zones (left/right page flip) ── */
 .rm-zone{position:absolute;top:0;bottom:0;width:35%;z-index:1}
 .rm-zone-l{left:0}.rm-zone-r{right:0}
 /* When player is visible, shrink click zones to not overlap player */
@@ -334,8 +334,8 @@ mark.rm-search-mark.rm-search-mark-active{background:rgba(var(--accent-rgb),.45)
 .rm-bar-bm.flash{background:rgba(var(--accent-rgb),.2);border-color:rgba(var(--accent-rgb),.5)}
 
 /* ── Tapped word ── */
-.ss-sent-frag{position:absolute;pointer-events:none;z-index:0;box-sizing:content-box;opacity:0;transition:opacity .16s ease}
-.ss-word-flash{position:absolute;pointer-events:none;z-index:0;border-radius:4px;background:rgba(var(--accent-rgb),.3);animation:wordFlash .7s ease-out forwards}
+.ss-sent-frag{position:absolute;pointer-events:none;z-index:-1;box-sizing:content-box;opacity:0;transition:opacity .16s ease}
+.ss-word-flash{position:absolute;pointer-events:none;z-index:-1;border-radius:4px;background:rgba(var(--accent-rgb),.3);animation:wordFlash .7s ease-out forwards}
 @keyframes wordFlash{from{opacity:1}to{opacity:0}}
 
 /* ── Chapter ticks on the seek bar ── */
@@ -1881,7 +1881,7 @@ function rmInit(restorePageIdx) {
     .rm-strip p{box-sizing:border-box;margin:-.45em 0 .85em;padding:.45em .9em .45em .72em;break-inside:auto;page-break-inside:auto;orphans:1;widows:1;user-select:text;-webkit-user-select:text;-webkit-touch-callout:default;}
     .rm-strip p:last-child{margin-bottom:0;}
     .rm-strip p.ss-active{}
-    .rm-strip p.para-synced{cursor:pointer;position:relative;z-index:1;}
+    .rm-strip p.para-synced{cursor:pointer;}
     .rm-strip p.para-synced.para-click-flash{animation:paraClickFlash .35s ease-out;}
     @keyframes paraClickFlash{0%{opacity:.55}100%{opacity:1}}
   `;
@@ -2249,7 +2249,7 @@ function rmApplyTheme() {
   if (ss) ss.textContent = `
     .rm-strip p{box-sizing:border-box;margin:-.45em 0 .85em;padding:.45em .9em .45em .72em;break-inside:auto;page-break-inside:auto;orphans:1;widows:1;user-select:text;-webkit-user-select:text;-webkit-touch-callout:default;}.rm-strip p:last-child{margin-bottom:0}
     .rm-strip p.ss-active{}
-    .rm-strip p.para-synced{cursor:pointer;position:relative;z-index:1;}
+    .rm-strip p.para-synced{cursor:pointer;}
     .rm-strip p.para-synced.para-click-flash{animation:paraClickFlash .35s ease-out;}
     @keyframes paraClickFlash{0%{opacity:.55}100%{opacity:1}}
   `;
