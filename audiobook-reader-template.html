@@ -864,6 +864,17 @@ function drawSentence(el, range) {
       lines.push({ col, mid, left: r.left, right: r.right, h: r.height });
     }
   }
+  // Right edges that nearly line up become one edge, so a hyphen at a line end leaves no notch
+  const snap = (parseFloat(getComputedStyle(el).fontSize) || 16) * 0.5;
+  for (let pass = 0, moved = true; moved && pass < 8; pass++) {
+    moved = false;
+    for (let k = 1; k < lines.length; k++) {
+      const up = lines[k - 1], down = lines[k];
+      if (up.col !== down.col || up.right === down.right || Math.abs(up.right - down.right) >= snap) continue;
+      up.right = down.right = Math.max(up.right, down.right);
+      moved = true;
+    }
+  }
   const th = rmGetResolvedTheme();
   const fill = `rgba(${SKIN_DEF.accentRgb},${th.light ? '.17' : '.24'})`;
   // The line down the left runs on while the following lines start at the same edge
