@@ -337,6 +337,7 @@ mark.rm-search-mark.rm-search-mark-active{background:rgba(var(--accent-rgb),.45)
 .ss-sent-frag{position:absolute;pointer-events:none;z-index:-1;box-sizing:content-box;opacity:0;transition:opacity .16s ease}
 .ss-word-flash{position:absolute;pointer-events:none;z-index:-1;border-radius:4px;background:rgba(var(--accent-rgb),.3);animation:wordFlash .7s ease-out forwards}
 @keyframes wordFlash{from{opacity:1}to{opacity:0}}
+.ss-sent-frag.ss-sent-hy{z-index:1;white-space:pre;text-indent:0;text-align:left;background:none}
 /* ── Word lookup box ── */
 .rm-def{position:fixed;left:0;top:0;z-index:210;width:max-content;max-width:min(300px,calc(100vw - 24px));box-sizing:border-box;padding:8px 12px 9px;border-radius:10px;border:1px solid transparent;box-shadow:0 10px 34px rgba(0,0,0,.28);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;opacity:0;pointer-events:none;transition:opacity .16s ease}
 .rm-def.show{opacity:1;pointer-events:auto}
@@ -864,7 +865,8 @@ function drawSentence(el, range) {
   const sRect = strip.getBoundingClientRect();
   const lineH = parseFloat(getComputedStyle(el).lineHeight) || 0;
   const lines = [];
-  for (const r of range.getClientRects()) {
+  const rects = [...range.getClientRects()];
+  for (const r of rects) {
     if (r.width < 0.5 || r.height < 1) continue;
     const col = Math.floor((r.left - sRect.left + _rmColGap / 2) / _rmColPitch);
     const mid = (r.top + r.bottom) / 2;
@@ -918,6 +920,56 @@ function drawSentence(el, range) {
     getComputedStyle(box).opacity;
     box.style.opacity = '1';
   });
+  // The sentence colour misses automatic hyphens, so a lit hyphen is drawn over each dim one
+  if (!el.closest('.rm-ch.ss-dim')) return;
+  const cs = getComputedStyle(el);
+  for (const r of hyphenRects(rects, hyphenWidth(cs))) {
+    const mark = document.createElement('div');
+    mark.className = 'ss-sent-frag ss-sent-hy';
+    mark.textContent = '-';
+    mark.style.cssText = `left:${r.left - sRect.left}px;top:${r.top - sRect.top}px;height:${r.height}px;` +
+      `font:${cs.font};letter-spacing:${cs.letterSpacing};line-height:${r.height}px;color:${th.text};`;
+    strip.appendChild(mark);
+    getComputedStyle(mark).opacity;
+    mark.style.opacity = '1';
+  }
+}
+
+// Width of a hyphen in a paragraph's font
+const _hyphenW = new Map();
+function hyphenWidth(cs) {
+  const key = cs.font + '|' + cs.letterSpacing;
+  if (!_hyphenW.has(key)) {
+    const probe = document.createElement('span');
+    probe.textContent = '-';
+    probe.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${cs.font};letter-spacing:${cs.letterSpacing};`;
+    document.body.appendChild(probe);
+    _hyphenW.set(key, probe.getBoundingClientRect().width);
+    probe.remove();
+  }
+  return _hyphenW.get(key);
+}
+
+// The rects that are automatic hyphens. The browser reports each as a rect of its own,
+// one hyphen wide, touching the text before it and ending its line.
+function hyphenRects(rects, width) {
+  return rects.filter((r, i) => {
+    const prev = rects[i - 1], next = rects[i + 1];
+    return prev && next && Math.abs(r.width - width) < 0.75 && Math.abs(prev.right - r.left) < 0.75 &&
+      Math.abs(prev.top - r.top) < 1 && Math.abs(next.top - r.top) > 1;
+  });
+}
+
+// Client rects of a range joined into one per line, so a hyphen rect does not overlap its word
+function rangeLineRects(range) {
+  const out = [];
+  for (const r of range.getClientRects()) {
+    if (r.width < 0.5) continue;
+    const last = out[out.length - 1];
+    if (last && Math.abs(last.top - r.top) < 2 && r.left <= last.right + 1) last.right = Math.max(last.right, r.right);
+    else out.push({ left: r.left, top: r.top, right: r.right, height: r.height });
+  }
+  return out;
 }
 function updateSentence(fp, t) {
   if (!SENT_MODE || !fp || !fp.el) return;
@@ -1560,7 +1612,7 @@ function skinCss() {
   const th = rmGetResolvedTheme();
   let css = '';
   if (SKIN_DEF.book) css += `
-    .rm-strip p{margin:0;padding:0 14px 0 17px;text-indent:1.5em;hyphens:auto;-webkit-hyphens:auto}
+    .rm-strip p{margin:0;padding:0 14px 0 17px;text-indent:1.5em;hyphens:auto;-webkit-hyphens:auto;hyphenate-character:'-';-webkit-hyphenate-character:'-'}
     .rm-strip p.ss-flush,.rm-strip p.ss-center,.rm-strip p.ss-right{text-indent:0}
     .rm-strip p.ss-center{text-align:center;margin:1.6em 0 0}
     .rm-strip p.ss-right{text-align:right;margin:.3em 0 0}
@@ -2816,11 +2868,10 @@ function defMark(range) {
   const strip = document.getElementById('rm-strip');
   if (!strip || !range) return;
   const sRect = strip.getBoundingClientRect();
-  for (const r of range.getClientRects()) {
-    if (r.width < 2) continue;
+  for (const r of rangeLineRects(range)) {
     const mark = document.createElement('div');
     mark.className = 'ss-word-mark';
-    mark.style.cssText = `left:${r.left - sRect.left - 2}px;top:${r.top - sRect.top}px;width:${r.width + 4}px;height:${r.height}px;`;
+    mark.style.cssText = `left:${r.left - sRect.left - 2}px;top:${r.top - sRect.top}px;width:${r.right - r.left + 4}px;height:${r.height}px;`;
     strip.appendChild(mark);
   }
 }
@@ -2924,11 +2975,10 @@ function flashWord(el, from, to) {
   }
   if (!started || range.collapsed) return;
   const sRect = strip.getBoundingClientRect();
-  for (const r of range.getClientRects()) {
-    if (r.width < 2) continue;
+  for (const r of rangeLineRects(range)) {
     const mark = document.createElement('div');
     mark.className = 'ss-word-flash';
-    mark.style.cssText = `left:${r.left - sRect.left - 2}px;top:${r.top - sRect.top}px;width:${r.width + 4}px;height:${r.height}px;`;
+    mark.style.cssText = `left:${r.left - sRect.left - 2}px;top:${r.top - sRect.top}px;width:${r.right - r.left + 4}px;height:${r.height}px;`;
     strip.appendChild(mark);
     mark.addEventListener('animationend', () => mark.remove(), { once: true });
   }
